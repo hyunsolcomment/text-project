@@ -1,0 +1,38 @@
+:root {
+    --main-color: #343A40;
+}
+
+body {
+    margin: 0;
+}
+
+* {
+    font-size: 17px;
+    font-family: gowun;
+    box-sizing: border-box;
+}
+
+input, textarea, div[contenteditable=true], button {
+    outline: none;
+    border: 0;
+}
+ 
+button {
+    background: #20C997;
+    color: white;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #17A589;
+    color: white;
+}
+
+nav *,
+button {
+    user-select: none;
+    -moz-user-select: none;
+    -webkit-user-drag: none;
+    -webkit-user-modify: none;
+    -webkit-user-select: none;
+}
