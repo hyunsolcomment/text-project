@@ -32,7 +32,9 @@ export class User {
         // note-list 테이블 생성
         await Note.createNoteListTable(id);
 
-        Log.log(`${prefix} [${id}]: 회원가입했습니다.`);
+        // note-shared 테이블 생성
+        await Note.createSharedNoteListTable(id);
+        
         return true;
     }
 
@@ -58,10 +60,8 @@ export class User {
             // 비밀번호 변경
             if(pw) {
                 await DBUtil.query(`
-                    UPDATE SET
+                    UPDATE users SET
                         password = ?
-                    FROM
-                        users
                     WHERE
                         id = ?
                 `, [encPw,user_id]);    
@@ -70,10 +70,8 @@ export class User {
             // 이름 변경
             if(name) {
                 await DBUtil.query(`
-                    UPDATE SET
+                    UPDATE users SET
                         name = ?
-                    FROM
-                        users
                     WHERE
                         id = ?
                 `, [name, user_id]);
@@ -84,6 +82,7 @@ export class User {
 
         } catch (e) {
             Log.error(`${prefix} '${user_id}'의 정보를 수정하지 못했습니다:`);
+            console.error(e);
             return false;
         }
     }
@@ -186,12 +185,12 @@ export class User {
                 DROP TABLE note-list-${user_id};
 
                 -- 유저 정보 삭제
-                DELETE FROM
-                    users
-                WHERE
-                    id = ?;
+                DELETE FROM users WHERE id = ?;
 
             `,[user_id]);
+
+            // note-shared 테이블 삭제
+            await Note.deleteSharedNoteListTable(user_id);
 
             Log.log(`${prefix} '${user_id}' 유저를 삭제했습니다.`); 
 

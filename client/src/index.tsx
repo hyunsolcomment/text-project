@@ -8,6 +8,7 @@ import { Provider } from 'react-redux';
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import { store } from './store/store';
 import SignPage from './pages/SignPage';
+import NoteListPage from './pages/NoteListPage';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -17,6 +18,7 @@ root.render(
         <HashRouter>
             <Routes>
                 <Route path="/sign" element={<SignPage />} />
+                <Route path="/list" element={<NoteListPage />} />
             </Routes>
         </HashRouter>
     </Provider>

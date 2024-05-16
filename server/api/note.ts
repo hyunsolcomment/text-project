@@ -1,8 +1,7 @@
 import { Router } from "express";
 import { User } from "../modules/user";
-import { error } from "console";
 import { Note } from "../modules/note";
-import { success } from "../util/res";
+import { error, success } from "../util/res";
 import { Log } from "../util/logger";
 import url from 'url';
 import { NotePermission } from "../@types/NotePermission";
@@ -12,8 +11,7 @@ export const noteRouter = Router();
 noteRouter.use((req, res, next) => {
     const userId   = User.getIdByResponse(req);
     const prefix   = `[메모장 미들웨어] [${req.ip}]:`;
-    const pathName = new URL(req.url).pathname;
-
+    
     if(!userId) {   
         Log.warn(`${prefix} 로그인하지 않은 상태에서 접근했습니다.`);
         error(res, `로그인이 필요해요.`);
@@ -53,10 +51,20 @@ noteRouter.post("/set-permission", async (req, res) => {
     let permission = req.body.permission;
     let value      = req.body.permission_value;
 
-    const prefix = `[note/set-permission] [${userId}]:`;
+    const prefix  = `[note/set-permission]`;
+    const action  = `${Note.toString(note)}에 대한 '${targetUser}'의 '${permission}' 권한을 '${value}'로 설정`
+    const onError = (reason: string) => Log.error(`${prefix} ${action}에 실패했습니다. (${reason})`)        
+    const onWarn  = (reason: string) => Log.warn(`${prefix} ${action}에 실패했습니다. (${reason})`)        
 
     if(!note || !targetUser || !permission || value === undefined) {
-        Log.warn(`${prefix} 실패했습니다. (인자가 충분하지 않습니다.)`)        
+        onWarn(`인자가 충분하지 않습니다.`);
+        error(res, `올바르지 않은 요청이에요.`)
+        return;
+    }
+
+    // 자신이 소유하고 있는 메모장에서는 자신에 대한 권한을 설정할 수 없음
+    if(targetUser === note.user_id) {
+        onWarn(`본인 소유의 메모장에 대해 권한을 설정할 수 없습니다.`);
         error(res, `올바르지 않은 요청이에요.`)
         return;
     }
@@ -68,7 +76,7 @@ noteRouter.post("/set-permission", async (req, res) => {
     )
 
     if(!isValidParams) {
-        Log.warn(`${prefix} 실패했습니다. (인자가 올바르지 않습니다.) (permission: ${permission}, value: ${value})`);
+        onWarn(`인자가 올바르지 않습니다.`)
         error(res, `올바르지 않은 요청이에요.`);
         return;
     }
@@ -77,14 +85,14 @@ noteRouter.post("/set-permission", async (req, res) => {
         note             : note,
         target_user      : targetUser,
         permission       : permission,
-        permission_value : value
+        permission_value : value === 'true'
     })
 
     if(rs) {
-        Log.log(`${prefix} 성공했습니다.`);
+        Log.log(`${prefix} -`);
         success(res);
     } else {
-        Log.error(`${prefix} 실패했습니다. (유저가 존재하지 않거나 DB 반영 오류)`)
+        onError(`유저가 존재하지 않거나 DB 반영 오류`);
         error(res, `올바르지 않은 요청이에요.`);
     }
 })
@@ -100,6 +108,13 @@ noteRouter.post("/edit", async (req, res) => {
     if(!note) {
         Log.warn(`${prefix} 메모장 정보가 없거나 올바르지 않습니다.`);
         error(res, `올바르지 않은 요청이에요.`)
+        return;
+    }
+
+    // 쓰기 권한 확인
+    if(!await Note.hasPermission(note, userId, NotePermission.WRITE)) {
+        Log.error(`${prefix} ${Note.toString(note)}을 수정하지 못했습니다. (권한이 없습니다.)`)
+        error(res, `권한이 없어요.`);
         return;
     }
 
@@ -183,6 +198,27 @@ noteRouter.post("/delete", async (req, res) => {
     }
 })
 
+noteRouter.get("/notes", async (req, res) => {
+
+    const userId = req["user_id"];
+    const prefix = `[note/notes] [${userId}]:`;
+
+    if(userId) {
+        Log.log(`${prefix} 메모장 목록을 불러오고 있습니다.`);
+
+        const list = await Note.getNoteListAll(userId);
+
+        Log.log(`${prefix} 총 ${list.length}개의 메모장 목록을 반환합니다.`);
+        success(res, { note_list: list });
+        return;
+    }
+
+    // 유저 아이디가 없을 경우 (로그인되어 있지 않을 경우) 오류 반환
+    error(res, `올바르지 않은 요청이에요.`);
+
+    return;   
+})
+
 /*  메모장 정보 반환  */
 noteRouter.get("/notes/:uid/:nid", async (req, res) => {
 
@@ -201,13 +237,6 @@ noteRouter.get("/notes/:uid/:nid", async (req, res) => {
     const prefix = `[note/notes] [${userId}]:`;
     const suffix = `(uid: ${ownerId}, nid: ${noteId})`;
 
-    // 메모장 소유자나 메모장 아이디를 입력하지 않음
-    if(!ownerId || !noteId) {
-        Log.warn(`${prefix} 메모장을 찾을 수 없습니다. ${suffix}`)
-        error(res, `메모장을 찾을 수 없어요.`)
-        return;   
-    }
-
     // 메모장 읽기 권한 확인하기
     if(await Note.hasPermission(note, userId, NotePermission.READ)) {
 
@@ -217,7 +246,7 @@ noteRouter.get("/notes/:uid/:nid", async (req, res) => {
         const info = await Note.getInfoById(note);
 
         Log.log(`${prefix} 메모장 정보를 반환했습니다. ${suffix}`);
-        success(res, info)
+        success(res, { info: info })
 
     } else {
 
@@ -241,7 +270,7 @@ noteRouter.post("/permission", async (req, res) => {
         return;
     }
 
-    const permissions = Note.getPermissions(note, targetUser);
+    const permissions = await Note.getPermissions(note, targetUser);
 
     Log.log(`${prefix} ${note.note_id} 메모장에 대한 '${targetUser}'에게 허용된 모든 권한을 반환했습니다.`)
     success(res, { permissions: permissions });

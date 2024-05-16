@@ -97,6 +97,7 @@ userRouter.get("/logout", (req, res) => {
 /*  설정 변경  */
 userRouter.post("/edit", async (req, res) => {
     const prefix = `[user/edit]`;
+
     const token  = req.cookies?.[V.REQ_TOKEN_KEY];
     const userId = Token.getIdByToken(token);
 
@@ -121,6 +122,7 @@ userRouter.post("/edit", async (req, res) => {
     // 기존 비밀번호가 일치하지 않음
     if(!await User.checkPassword(userId, oldPw)) {
         Log.warn(`${prefix} ${action}에 실패했습니다. 기존 비밀번호가 일치하지 않습니다.`);
+        error(res, `비밀번호가 일치하지 않아요.`);
         return;
     }
 
@@ -173,4 +175,15 @@ userRouter.post("/delete", async (req, res) => {
     User.logout(res);
     
     success(res);
+})
+
+/*  정보 반환  */
+userRouter.get("/info/:uid", async (req, res) => {
+    const userId = req.params.uid;
+
+    const userInfo = await User.getUserInfo(userId);
+
+    delete userInfo.password
+    
+    success(res, userInfo);
 })

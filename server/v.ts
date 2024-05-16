@@ -10,5 +10,7 @@ export const V = {
     PROFILE_IMAGE_LIMIT: 10 * 1024 * 1024,
 
     /** 비밀번호 암호화 키 */
-    PASSWORD_KEY: process.env.PASSWORD_KEY
+    PASSWORD_KEY: process.env.PASSWORD_KEY,
+
+    DEBUG: process.env.DEBUG.toLowerCase() === 'true'
 }

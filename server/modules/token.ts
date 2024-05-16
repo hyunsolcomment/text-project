@@ -7,14 +7,15 @@ const TOKEN_KEY = process.env.TOKEN_KEY;
 
 export class Token {
     static createToken(user_id: string) {
-        jwt.sign({
+        return jwt.sign({
             id: user_id,
             date: new Date().getTime()
         }, TOKEN_KEY);
     }
 
     static getIdByToken(token: string | undefined) {
-        if(token && jwt.verify(token, TOKEN_KEY)) {
+        
+        if(token !== undefined && jwt.verify(token, TOKEN_KEY)) {
             return jwt.decode(token)["id"];
         }
 
